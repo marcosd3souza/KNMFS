@@ -15,4 +15,4 @@ It's necessary install some packages/softwares before execution:
 
 # Execution
 - For benchmark execution run the runBenchmark.sh file in the benchmark/ folder
-- For MSUFS execution run main.py in the MSUFS/ folder
+- For MSUFS execution run main.py in the code/ folder
