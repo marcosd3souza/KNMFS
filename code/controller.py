@@ -4,100 +4,94 @@ from method.graph import Graph
 from helpers.similarity import Similarity
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, Normalizer
-from sklearn.cluster import KMeans
-from sklearn.neighbors import kneighbors_graph
-from sklearn.decomposition import KernelPCA
-
-from sklearn import metrics
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import NMF
+from scipy.ndimage import gaussian_filter
+from scipy import sparse
 
 class Controller:
     def __init__(self, data: np.ndarray):
         self.data = data
-        self.scaled_data = StandardScaler().fit_transform(data)
 
     def update_settings(self, setup: Settings):
         self.setup = setup
-    
+
     def get_ranking(self):
-
-        # data_cov = np.cov(self.data)
-        # X_transformed = KernelPCA(n_components=50, kernel='linear', n_jobs=-1).fit_transform(self.data)
-        # scaled_data = StandardScaler().fit_transform(self.data)
-        
-        # W = kneighbors_graph(scaled_data, self.setup.k, metric=self.setup.metric.value, n_jobs=-1)
-
-        # feat0 = np.min(self.scaled_data, axis=0)
-        # feat1 = np.max(self.scaled_data, axis=0)
-        # feat2 = np.mean(self.scaled_data, axis=0)
-        # # feat3 = np.var(self.scaled_data, axis=0)
-        # feat4 = np.median(self.scaled_data, axis=0)
-        # # feat5 = np.quantile(self.scaled_data, 0.25, axis=0)
-        # # feat6 = np.quantile(self.scaled_data, 0.75, axis=0)
-        # # feat7 = np.linalg.norm(self.data, axis=0)
-
-        # X_feat = np.transpose([feat0, feat1, feat2, feat4])
-        # n_hyperfeat = 5
-
-        # kmeans = KMeans(
-        #     n_clusters=n_hyperfeat, 
-        #     init='k-means++', 
-        #     verbose=0, 
-        #     random_state=0, 
-        #     copy_x=True 
-        # )
-        # model = kmeans.fit(X_feat)
-
-        # # silhouette = metrics.silhouette_score(X_feat, model.labels_, metric='euclidean')
-
-        # X_new = []
-        # for i in range(0, n_hyperfeat):
-        #     hyperfeat_norm = np.linalg.norm(self.scaled_data[:, model.labels_ == i], axis=1)
-        #     X_new.append(hyperfeat_norm)
-        
-        # X_new = np.transpose(X_new)
-        
-        W = Similarity(self.setup, self.scaled_data).construct_W()
-        # D = np.diag(W.sum(axis=0))
-
-        # L = D - W
-
-        # vals, vecs = np.linalg.eig(L)
-        # idx = np.argsort(vals)
-        # reduced = vecs[:, idx[0:10]].real
-
-        # A = kneighbors_graph(self.data, self.setup.k, metric=self.setup.metric.value, mode='connectivity', n_jobs=-1)
-                
-        graph = Graph(W)
+        # S = Similarity(self.setup, self.data).construct_W()
+        S = self._get_nmf_S(self.data)
+        # X_new, idx = self._reduce_data(S)
+        # S = Similarity(self.setup, X_new).construct_W()
+            
+        graph = Graph(S)
 
         partition = graph.get_communities(self.setup.community_method)
         modularity = graph.get_modularity(partition)
 
-        # print('modularity: ', modularity)
+        scores = Scoring(partition, self.data).get_scores()
 
-        # modularity = 0
+        feat_idx = np.argsort(scores, 0)[::-1]
 
-        # kmeans = KMeans(
-        #     n_clusters=10, 
-        #     init='k-means++', 
-        #     n_init=50, 
-        #     verbose=0, 
-        #     copy_x=True, 
-        #     n_jobs=-1,
-        #     random_state=0)
-        # kmeans.fit(reduced)
-
-        # partition = kmeans.labels_
-        # p = {}
-        # for i, v in enumerate(partition):
-        #     p.setdefault(v, set()).add(i)
+        print('modularity: ', modularity)
         
-        # partition = [v for v in p.values()]
+        return feat_idx, len(partition), modularity
+    
+    def _reduce_data(self, S: np.ndarray) -> np.ndarray:
+        M = sparse.csr_matrix(S)
+        vals, vecs = Similarity.construct_spectral_info(M)
+        idx = np.argsort(vals.real)
+        X_new = vecs[:, idx[0:100]].real
 
-        n_cluster = len(partition)
+        return X_new, idx
 
-        scores = Scoring(partition, self.scaled_data, self.setup).get_scores(W)
-        feat_idx = np.argsort(scores, 0)
-        feat_idx = feat_idx[::-1]
+    def _get_nmf_S(self, X: np.ndarray) -> np.ndarray:
         
-        return feat_idx, n_cluster, modularity
+        nmf = NMF(
+            n_components=20,
+            init='random',
+            random_state=0,
+            max_iter=5000
+        )
+
+        S = Similarity(self.setup, X).construct_W()
+
+        # initial loss
+        nmf.fit_transform(S)
+        initial_loss = nmf.reconstruction_err_
+        print('Initial loss: ', initial_loss)
+
+        # Initialization
+        T = 30
+        best_loss = 999999999999999
+        old_loss = 999999999999999
+        best_S = S
+        tol = 0.0001
+        g_filter = 1.2
+
+        for t in range(T):
+            # a decomposição comprime os dados de entrada
+            # logo as características mais relevantes (vizinhança forte)
+            # tende a persistir nos dados comprimidos
+            # e os detalhes menos relevantes da matriz de similaridade
+            # tendem a desaparecer
+            
+            W = nmf.fit_transform(S)
+            H = nmf.components_
+            loss = nmf.reconstruction_err_
+
+            # loss_rate.append(loss)
+            if (loss > old_loss) or abs(old_loss - loss) <= tol:
+                break
+
+            if loss < best_loss:
+                best_loss = loss
+                best_S = Similarity(self.setup, W.dot(H)).construct_W()
+
+            old_loss = loss
+            
+            S = gaussian_filter(W.dot(H), sigma=g_filter)
+
+        print('best loss: ', best_loss)
+        print('n iter: ', t)
+        
+        return best_S
+    

@@ -1,4 +1,4 @@
-from method.settings import Settings, DistanceMetric, ScoringMethod, CommunityMethod
+from method.settings import Settings, DistanceMetric, CommunityMethod
 from controller import Controller
 from helpers.data_reader import DataReader
 from datetime import datetime
@@ -9,6 +9,8 @@ from sklearn import metrics
 from sklearn.metrics.cluster import v_measure_score
 from sklearn.metrics import accuracy_score
 from sklearn.metrics.cluster import adjusted_rand_score
+from scipy.optimize import linear_sum_assignment as linear_assignment
+# from coclust.evaluation.external import accuracy
 
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
@@ -16,13 +18,23 @@ from sklearn.preprocessing import StandardScaler
 def get_model(x_selected, n_clusters):
     kmeans = KMeans(
         n_clusters=n_clusters, 
-        init='k-means++', 
-        n_init=200, 
-        verbose=0, 
-        random_state=0, 
-        copy_x=True 
+        init='k-means++',
+        random_state=0,
+        n_init=50,
+        verbose=0,
+        copy_x=True
     )
     return kmeans.fit(x_selected)
+
+def cluster_acc(y_true, y_pred):
+    cm = metrics.confusion_matrix(y_true, y_pred)
+    _make_cost_m = lambda x:-x + np.max(x)
+    indexes = linear_assignment(_make_cost_m(cm))
+    indexes = np.concatenate([indexes[0][:,np.newaxis],indexes[1][:,np.newaxis]], axis=-1)
+    js = [e[1] for e in sorted(indexes, key=lambda x: x[0])]
+    cm2 = cm[:, js]
+    acc = np.trace(cm2) / np.sum(cm2)
+    return acc
 
 
 def get_indices(data, y_true, n_clusters):
@@ -30,20 +42,20 @@ def get_indices(data, y_true, n_clusters):
     
     y_predict = model.labels_
 
+    acc = cluster_acc(y_true, y_predict)
+
     for i in range(0, len(y_predict)):
         y_predict[i] = y_predict[i] + 1
 
     # calculate NMI
-    nmi = -1
-    if y_true is not None:
-        nmi = v_measure_score(y_true, y_predict)
+    nmi = v_measure_score(y_true, y_predict)
     
 #     avg_sil = metrics.silhouette_score(data, model.labels_, metric='euclidean')
     avg_sil = metrics.silhouette_score(data, model.labels_, metric='euclidean')
 
     corrected_rand = adjusted_rand_score(y_true, y_predict)
-
-    acc = accuracy_score(y_true, y_predict)
+    # acc = accuracy_score(y_true, y_predict)
+    # acc = accuracy(y_true, y_predict)
            
     return avg_sil, nmi, corrected_rand, acc
 
@@ -65,9 +77,9 @@ datasets = [
      ('biological', 'TOX171'), 
      ('biological', 'ALLAML'),
      ('biological', 'SMK_CAN'), 
-     ('text', 'PCMAC'),
-     ('text', 'RELATHE'),
-     ('text', 'BASEHOCK'),
+    #  ('text', 'PCMAC'),
+    #  ('text', 'RELATHE'),
+    #  ('text', 'BASEHOCK'),
 # # # #     ('others', 'ELD_2011_2014'),
      ('others', 'isolet')
 ]
@@ -95,7 +107,8 @@ for domain, name in datasets:
     print('domain: ', domain)
     print('dataset: ', name)
     X, y = DataReader(name).get_dataset()
-    data = X.values
+    data = StandardScaler().fit_transform(X.values)
+    # data = X.values
 
     all_opt_to_save = pd.DataFrame()
 
@@ -128,64 +141,63 @@ for domain, name in datasets:
     
     community_method_candi = [CommunityMethod.LOUVAIN]#, CommunityMethod.GREEDY]
 
-    scoring_metric_candi = [DistanceMetric.COSINE]#, DistanceMetric.MANHATTAN, DistanceMetric.EUCLIDEAN]
-    scoring_candi = [ScoringMethod.EUCLIDEAN_NORM]# , ScoringMethod.ORDINAL, ScoringMethod.EUCLIDEAN_NORM]
+    scoring_metric_candi = [DistanceMetric.COSINE]#, DistanceMetric.MANHATTAN, DistanceMetric.EUCLIDEAN]    
 
     controller = Controller(data)
     # X = StandardScaler().fit_transform(data)
 
     for k in k_candi:
         for metric in metric_candi:
-            for scoring_method in scoring_candi:
-                for scoring_metric in scoring_metric_candi:
-                    for community_method in community_method_candi:
-                
-                        setup = Settings(k, metric, community_method, scoring_method, scoring_metric)
-                        controller.update_settings(setup)
-                        rank, n_clusters, modularity = controller.get_ranking()                        
-        #                 rank, _, k, partition = get_features_rank_by_centrality(X, config)
-                        
-                        for cut in magic:        
-                            selection = rank[0:cut]
-                            data_reduced = X.iloc[:, selection]
+            for scoring_metric in scoring_metric_candi:
+                for community_method in community_method_candi:
+            
+                    setup = Settings(k, metric, community_method, scoring_metric)
+                    controller.update_settings(setup)
+                    rank, n_clusters, modularity = controller.get_ranking()                        
+    #                 rank, _, k, partition = get_features_rank_by_centrality(X, config)
+                    
+                    for cut in magic:        
+                        selection = rank[0:cut]
+                        data_reduced = X.iloc[:, selection]
 
-                    #         for k in k4:
-                            sil, nmi, cr, acc = get_results(data_reduced, y, n_clusters) 
-                            # print(f'sil: {sil} nmi: {nmi}')
+                #         for k in k4:
+                        n_clusters = len(np.unique(y))
+                        sil, nmi, cr, acc = get_results(data_reduced, y, n_clusters) 
+                        # print(f'sil: {sil} nmi: {nmi}')
 
-                            nmis.append(nmi)
-                            crs.append(cr)
-                            accs.append(acc)
+                        nmis.append(nmi)
+                        crs.append(cr)
+                        accs.append(acc)
 
-                            fitness = sil
+                        fitness = sil
 
-                            partial_result_to_save = pd.DataFrame(
-                                {
-                                    'cut_point': [cut],
-                                    'avg_sil': [sil], 
-                                    'nmi': [nmi],
-                                    'corrected_rand': [cr]
-                                }
-                            )
+                        partial_result_to_save = pd.DataFrame(
+                            {
+                                'cut_point': [cut],
+                                'avg_sil': [sil], 
+                                'nmi': [nmi],
+                                'corrected_rand': [cr]
+                            }
+                        )
 
-                            all_opt_to_save = pd.concat([all_opt_to_save, partial_result_to_save])
+                        all_opt_to_save = pd.concat([all_opt_to_save, partial_result_to_save])
 
-                            if fitness > best_fitness:
-                                best_fitness = fitness
+                        if fitness > best_fitness:
+                            best_fitness = fitness
 
-                                nmi_select_by_sil = nmi
-                                best_sil = sil
-                                best_modularity = modularity
-                                best_data = data_reduced
-                                n_cluster_select = n_clusters
-                                f_selected = cut
+                            nmi_select_by_sil = nmi
+                            best_sil = sil
+                            best_modularity = modularity
+                            best_data = data_reduced
+                            n_cluster_select = n_clusters
+                            f_selected = cut
 
-                            if nmi > best_nmi:
-                                best_nmi = nmi 
+                        if nmi > best_nmi:
+                            best_nmi = nmi 
 
-    all_opt_to_save.to_csv("./result_all_opt_MSUFS_in_" + name + ".csv", sep=";")
+    all_opt_to_save.to_csv("./result_all_opt_KNMFS_in_" + name + ".csv", sep=";")
 
-    best_data.to_csv("./" + name + "_after_FS_MSUFS.csv", sep=";")
+    best_data.to_csv("./" + name + "_after_FS_KNMFS.csv", sep=";")
 
     dt_2 = datetime.now()
     time_diff = dt_2 - dt_1
@@ -207,13 +219,19 @@ for domain, name in datasets:
     acc_stds.append(np.std(accs))
 
     print('--------------- results -----------------')
-    print('NMI select: ', nmi_select_by_sil)
-    print('Silhouette: ', best_sil)
-    print('NMI best: ', best_nmi)
-
-    print('--------------- cluster -----------------')
     print('n feat: ', f_selected)
-    print('n cluster: ', n_cluster_select)
+    print('ACC avg: ', np.mean(accs))
+    
+    print('NMI max: ', np.max(nmis))
+    print('NMI avg: ', np.mean(nmis))
+    print('NMI std: ', np.std(nmis))
+
+    print('ARI max: ', np.max(crs))
+    print('ARI avg: ', np.mean(crs))
+    print('ARI std: ', np.std(crs))
+
+    print('Silhouette: ', best_sil)
+    
 
 #     print('--------------- after -----------------')
 #     _, _ = show_graph(best_data, partition)

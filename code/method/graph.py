@@ -8,8 +8,8 @@ from typing import List, Any
 from method.settings import CommunityMethod
 
 class Graph:
-    def __init__(self, w):
-        self.G = nx.from_scipy_sparse_matrix(w)
+    def __init__(self, S):
+        self.G = nx.from_numpy_array(S)
     
     def get_modularity(self, communities):
         return modularity(self.G, communities)
