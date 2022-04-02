@@ -1,5 +1,5 @@
 # KNMFS
-Unsupervised Feature Selection Method Based on Graph Modularity and Data Clustering
+Unsupervised Feature Selection Method Based on Iterative Similarity Graph Factorization and Clustering by Modularity
 
 # Abstract
 
