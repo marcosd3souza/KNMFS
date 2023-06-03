@@ -16,3 +16,6 @@ It's necessary install some packages/softwares before execution:
 
 # Execution
 For KNMFS execution run main.py in the code/ folder
+
+# Paper
+For more details access https://www.sciencedirect.com/science/article/pii/S095741742201288X
