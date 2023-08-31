@@ -1,3 +1,5 @@
+![KNMFS](https://github.com/marcosd3souza/KNMFS/blob/main/KNMFS.png)
+
 # KNMFS
 Unsupervised Feature Selection Method Based on Iterative Similarity Graph Factorization and Clustering by Modularity
 
