@@ -20,4 +20,16 @@ It's necessary install some packages/softwares before execution:
 For KNMFS execution run main.py in the code/ folder
 
 # Paper
-For more details access https://www.sciencedirect.com/science/article/pii/S095741742201288X
+Oliveira, M. D. S., Queiroz, S. R. D. M., & de Carvalho, F. D. A. (2022). Unsupervised feature selection method based on iterative similarity graph factorization and clustering by modularity. Expert Systems with Applications, 208, 118092.
+
+```
+@article{oliveira2022unsupervised,
+  title={Unsupervised feature selection method based on iterative similarity graph factorization and clustering by modularity},
+  author={Oliveira, Marcos de S and Queiroz, Sergio R de M and de Carvalho, Francisco de AT},
+  journal={Expert Systems with Applications},
+  volume={208},
+  pages={118092},
+  year={2022},
+  publisher={Elsevier}
+}
+```
