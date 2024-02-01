@@ -70,8 +70,8 @@ datasets = [
      ('image', 'warpAR10P'),
      ('image', 'warpPIE10P'),
      ('image', 'pixraw10P'),
-     ('image', 'orlraws10P'),
-     ('biological', 'nci9'),
+     # ('image', 'orlraws10P'),
+     # ('biological', 'nci9'),
      ('biological', 'ProstateGE'), 
      ('biological', 'Carcinom'), 
      ('biological', 'TOX171'), 
@@ -81,7 +81,7 @@ datasets = [
     #  ('text', 'RELATHE'),
     #  ('text', 'BASEHOCK'),
 # # # #     ('others', 'ELD_2011_2014'),
-     ('others', 'isolet')
+     # ('others', 'isolet')
 ]
 
 silhouettes = []
