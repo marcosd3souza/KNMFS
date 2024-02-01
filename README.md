@@ -1,7 +1,8 @@
-[![DOI](https://img.shields.io/badge/DOI-10.1007%2Fs10994--022--06261--1-%23fcb426)](https://doi.org/10.1016/j.eswa.2022.118092)
+![KNMFS](https://github.com/marcosd3souza/KNMFS/blob/main/KNMFS_workflow.png)
+
 
 # KNMFS
-![KNMFS](https://github.com/marcosd3souza/KNMFS/blob/main/KNMFS_workflow.png)
+[![DOI](https://img.shields.io/badge/DOI-10.1007%2Fs10994--022--06261--1-%23fcb426)](https://doi.org/10.1016/j.eswa.2022.118092)
 Unsupervised Feature Selection Method Based on Iterative Similarity Graph Factorization and Clustering by Modularity
 
 # Abstract
